@@ -135,3 +135,7 @@ python3 tools/make_icon.py monitor Imgs/Monitor.png
 ## Compatibilidad
 
 Probado en una **RG34XX SP** con el sistema original **1.0.6** (chip de carga AXP2202).
+
+## Licencia
+
+[MIT](LICENSE) © 2026 Brandol1406
