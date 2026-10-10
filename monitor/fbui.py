@@ -18,6 +18,7 @@ FB_CFG = "/mnt/mod/ctrl/configs/fb.cfg"
 BG = (18, 18, 24)
 FG = (235, 235, 235)
 DIM = (150, 150, 160)
+FAINT = (100, 104, 118)
 ACCENT = (40, 110, 220)
 BAR_BG = (55, 55, 65)
 SEL = (45, 60, 95)

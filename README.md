@@ -1,15 +1,20 @@
 # Monitor del sistema para Anbernic
 
 App para consolas **Anbernic con el sistema original** (chip H700, como la RG34XX SP) que muestra en
-vivo el estado de la consola: batería, temperaturas, procesador, memoria y conexión Wi-Fi.
+vivo el estado de la consola (batería, temperaturas, procesador, memoria y conexión Wi-Fi) e incluye
+un **administrador de tareas** con los procesos que se están ejecutando y cuánta CPU y RAM usa cada uno.
 
 Se abre desde la sección **APPS** del menú, como el Reloj u otras apps de Anbernic.
 
-![Monitor](docs/pantalla.png)
+| Sistema | Procesos |
+|---|---|
+| ![Sistema](docs/pantalla.png) | ![Procesos](docs/procesos.png) |
 
 ## Qué hace
 
-La pantalla se actualiza **cada segundo** y muestra:
+Tiene dos vistas; se cambia entre ellas con **◀ ▶** (o **L1 / R1**). Ambas se actualizan **cada segundo**.
+
+### Vista "Sistema"
 
 | Sección | Qué muestra |
 |---|---|
@@ -26,11 +31,38 @@ Para qué sirve, por ejemplo:
 - Saber **cuánta batería queda** en horas y minutos, no solo en porcentaje.
 - Encontrar la **IP** de la consola sin entrar a la configuración de red.
 
+### Vista "Procesos" (administrador de tareas)
+
+| Parte | Qué muestra |
+|---|---|
+| **Resumen** | Uso total de **CPU** y **RAM** con barras de color. |
+| **Lista** | Cada proceso con su **PID**, nombre, **% de CPU** y **RAM** que usa, ordenados por el que más consume. El % de CPU es sobre el procesador completo (todos los núcleos = 100 %), como en el administrador de tareas de Windows. |
+| **Descripción** | Los procesos conocidos tienen una explicación en español: "Menú de Anbernic", "RetroArch (emulador)", "Wi-Fi", "Servidor SSH", "GTA Vice City", "Este Monitor", etc. |
+| **Detalles** | Del proceso seleccionado: proceso padre, estado (ejecutándose, en espera, zombi…), cantidad de hilos y el comando completo con el que se inició. |
+
+- Por defecto se ocultan los **hilos del núcleo de Linux** (son más de 100 y casi nunca interesan);
+  con **SELECT** se muestran u ocultan.
+- **Terminar un proceso** con **X**: pide confirmación y permite terminarlo normalmente (A) o
+  forzarlo (X) si no responde. Para no romper nada, **no deja terminar** el núcleo del sistema
+  (PID 1 y sus hilos) ni el propio Monitor o el lanzador que lo abrió.
+
+Para qué sirve, por ejemplo:
+
+- Ver **qué está consumiendo batería**: un proceso con mucha CPU sin que estés haciendo nada.
+- Cerrar un juego o port que se **quedó trabado** sin reiniciar la consola (si la consola sigue
+  respondiendo a los botones).
+- Saber **cuánta RAM** usa un emulador o un port.
+
 ### Botones
 
-| Botón | Acción |
-|---|---|
-| **B** o **MENU** | Salir |
+| Botón | Vista "Sistema" | Vista "Procesos" |
+|---|---|---|
+| **◀ ▶** o **L1 / R1** | Cambiar de vista | Cambiar de vista |
+| **▲ ▼** | – | Elegir proceso |
+| **Y** | – | Ordenar por CPU o por RAM |
+| **SELECT** | – | Mostrar / ocultar hilos del núcleo |
+| **X** | – | Terminar el proceso elegido |
+| **B** o **MENU** | Salir | Salir |
 
 ## Requisitos
 
@@ -40,13 +72,14 @@ Para qué sirve, por ejemplo:
 
 ## Instalación
 
-La app son **4 archivos** que van dentro de la carpeta `Roms/APPS` de cualquiera de las dos tarjetas
+La app son **5 archivos** que van dentro de la carpeta `Roms/APPS` de cualquiera de las dos tarjetas
 (el menú lee las dos):
 
 ```
 Roms/APPS/Monitor.sh
 Roms/APPS/monitor/main.py
 Roms/APPS/monitor/fbui.py
+Roms/APPS/monitor/procs.py
 Roms/APPS/Imgs/Monitor.png
 ```
 
@@ -89,7 +122,8 @@ actualice la lista.
 - **Actualizar:** copia de nuevo los archivos encima de los anteriores.
 - **Desinstalar:** borra `Monitor.sh`, la carpeta `monitor` y `Imgs/Monitor.png`.
 
-La app no modifica nada del sistema: solo lee información.
+La app solo lee información; lo único que puede cambiar es terminar un proceso, y siempre lo pide
+confirmar antes.
 
 ## Problemas comunes
 
@@ -120,10 +154,29 @@ La app no modifica nada del sistema: solo lee información.
 | RAM | `/proc/meminfo` (`MemAvailable`) |
 | Wi-Fi | `iw dev wlan0 link` (red) e `ip -4 addr show wlan0` (IP) |
 
+- **`monitor/procs.py`**: el administrador de tareas.
+  - Recorre `/proc/<pid>/stat` y `/proc/<pid>/cmdline` de cada proceso.
+  - **% de CPU** = tiempo de CPU que usó el proceso (`utime + stime`) entre dos muestras, dividido entre
+    el tiempo total de todos los núcleos en ese intervalo (`/proc/stat`). Por eso la primera muestra
+    muestra "…" y los valores aparecen al segundo.
+  - **RAM** = memoria residente (RSS, campo 24 de `stat`) × tamaño de página.
+  - Los hilos del núcleo se reconocen porque no tienen línea de comando y su padre es el PID 2 (`kthreadd`).
+  - Para los scripts de Python o Bash muestra el nombre del script en vez del intérprete
+    (`networkd-dispatcher (python3)`), resolviendo las rutas relativas con `/proc/<pid>/cwd`.
+  - Terminar usa `SIGTERM` (normal) o `SIGKILL` (forzar). Antes revisa la cadena de procesos padres
+    para no dejar terminar al propio Monitor ni a su lanzador.
+- **Velocidad:** las filas de la lista y la parte fija de la pantalla (resumen, encabezados, pie) se
+  guardan ya dibujadas y solo se vuelven a dibujar cuando cambian los valores, una vez por segundo.
+  Moverse por la lista tarda unos **12–26 ms por cuadro**.
+
 Para probar sin tocar la pantalla (por ejemplo, por SSH):
 
 ```bash
 python3 monitor/main.py --png salida.png
+```
+
+```bash
+python3 monitor/main.py --png procesos.png --procs
 ```
 
 `tools/make_icon.py` genera el ícono de 240×180:
